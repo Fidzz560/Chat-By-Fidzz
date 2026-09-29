@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat HP Aman</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0d9488">
+    <style>
+        :root {
+            --primary: #0d9488;
+            --primary-dark: #0f766e;
+            --primary-light: #14b8a6;
+        }
+        .bg-theme { background-color: var(--primary) !important; }
+        .bg-theme-dark { background-color: var(--primary-dark) !important; }
+        .text-theme { color: var(--primary) !important; }
+        .border-theme { border-color: var(--primary) !important; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen font-sans transition-colors duration-200" id="app-body">
+
+    <!-- Screen Auth -->
+    <div id="auth-screen" class="flex justify-center items-center h-full p-4">
+        <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm" id="auth-card">
+            <h2 id="auth-title" class="text-xl font-bold mb-4 text-center text-theme">Login Chat Aman</h2>
+            <form id="auth-form" onsubmit="handleAuth(event)">
+                <div class="mb-3" id="display-name-group" style="display: none;">
+                    <label class="text-xs text-gray-500">Nama Tampilan</label>
+                    <input type="text" id="input-displayname" class="w-full p-2 border rounded text-sm mt-1 text-black">
+                </div>
+                <div class="mb-3">
+                    <label class="text-xs text-gray-500">Username Kustom</label>
+                    <input type="text" id="input-username" required class="w-full p-2 border rounded text-sm mt-1 text-black">
+                </div>
+                <div class="mb-4">
+                    <label class="text-xs text-gray-500">Password</label>
+                    <input type="password" id="input-password" required class="w-full p-2 border rounded text-sm mt-1 text-black">
+                </div>
+                <button type="submit" id="btn-submit" class="w-full bg-theme text-white py-2 rounded text-sm font-bold">Masuk</button>
+            </form>
+            <p class="text-xs text-center mt-4">
+                <a href="#" onclick="toggleAuthMode()" id="toggle-auth-text" class="text-theme underline">Belum ada akun? Daftar</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Screen Chat -->
+    <div id="chat-screen" class="hidden h-full flex flex-col">
+        <div class="bg-theme text-white p-3 flex justify-between items-center shadow-md">
+            <div>
+                <h3 id="user-display-name" class="font-bold text-sm">Nama User</h3>
+                <p id="user-username-tag" class="text-[10px] opacity-80">@username</p>
+            </div>
+            <div class="space-x-1">
+                <button onclick="openSettings()" class="bg-theme-dark text-[10px] px-2 py-1 rounded">Pengaturan</button>
+                <button onclick="openFeedback()" class="bg-theme-dark text-[10px] px-2 py-1 rounded">Saran</button>
+                <button onclick="logout()" class="bg-red-600 text-[10px] px-2 py-1 rounded">Keluar</button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div class="bg-white border-b md:border-r md:w-1/3 overflow-y-auto max-h-36 md:max-h-full" id="user-list"></div>
+            <div class="flex-1 flex flex-col bg-gray-50 h-full" id="chat-area">
+                <div id="chat-header" class="p-2 bg-gray-200 text-xs font-semibold text-gray-700">Pilih kontak untuk chat</div>
+                <div id="messages-container" class="flex-1 p-3 overflow-y-auto space-y-2"></div>
+                <form onsubmit="sendMessage(event)" class="p-2 bg-white flex gap-2 border-t" id="input-bar">
+                    <input type="text" id="message-input" placeholder="Ketik pesan..." disabled class="flex-1 border p-2 text-sm rounded focus:outline-none text-black">
+                    <button type="submit" id="send-btn" disabled class="bg-theme text-white px-4 text-sm rounded font-bold disabled:bg-gray-300">Kirim</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pengaturan -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-lg w-full max-w-xs" id="modal-card">
+            <h3 class="font-bold text-theme mb-3">Pengaturan Akun & Tema</h3>
+            <form onsubmit="saveSettings(event)">
+                <label class="text-xs font-semibold">Nama Tampilan</label>
+                <input type="text" id="setting-displayname" class="w-full border p-2 text-sm rounded mb-2 text-black">
+                <label class="text-xs font-semibold">Password Baru (Opsional)</label>
+                <input type="password" id="setting-password" class="w-full border p-2 text-sm rounded mb-3 text-black">
+
+                <div class="border-t pt-3 mb-3">
+                    <label class="text-xs font-semibold block mb-2">Pilihan Tema Warna</label>
+                    <div class="flex gap-2 mb-3">
+                        <button type="button" onclick="selectColor('teal')" class="w-7 h-7 rounded-full bg-teal-600 border-2 border-white shadow"></button>
+                        <button type="button" onclick="selectColor('indigo')" class="w-7 h-7 rounded-full bg-indigo-600 border-2 border-white shadow"></button>
+                        <button type="button" onclick="selectColor('rose')" class="w-7 h-7 rounded-full bg-rose-600 border-2 border-white shadow"></button>
+                        <button type="button" onclick="selectColor('emerald')" class="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white shadow"></button>
+                        <button type="button" onclick="selectColor('amber')" class="w-7 h-7 rounded-full bg-amber-600 border-2 border-white shadow"></button>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold">Mode Gelap (Dark Mode)</span>
+                        <input type="checkbox" id="setting-darkmode" onchange="previewDarkMode(this.checked)" class="w-4 h-4">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeSettings()" class="px-3 py-1 bg-gray-300 text-black text-sm rounded">Batal</button>
+                    <button type="submit" class="px-3 py-1 bg-theme text-white text-sm rounded">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Saran -->
+    <div id="feedback-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-lg w-full max-w-xs" id="feedback-card">
+            <h3 class="font-bold text-theme mb-2">Kirim Saran</h3>
+            <form onsubmit="sendFeedback(event)">
+                <textarea id="feedback-input" rows="4" required placeholder="Tuliskan saran Anda di sini..." class="w-full border p-2 text-sm rounded mb-3 text-black focus:outline-none"></textarea>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeFeedback()" class="px-3 py-1 bg-gray-300 text-black text-sm rounded">Batal</button>
+                    <button type="submit" class="px-3 py-1 bg-theme text-white text-sm rounded">Kirim</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isRegisterMode = false, currentUser = null, activeChatRecipient = null;
+        let selectedThemeColor = 'teal';
+
+        const colorMap = {
+            teal: { primary: '#0d9488', dark: '#0f766e', light: '#14b8a6' },
+            indigo: { primary: '#4f46e5', dark: '#4338ca', light: '#6366f1' },
+            rose: { primary: '#e11d48', dark: '#be123c', light: '#f43f5e' },
+            emerald: { primary: '#059669', dark: '#047857', light: '#10b981' },
+            amber: { primary: '#d97706', dark: '#b45309', light: '#f59e0b' }
+        };
+
+        fetch('/api/session').then(r => r.json()).then(d => {
+            if (d.loggedIn) { 
+                currentUser = d.user; 
+                applyTheme(currentUser.themeColor, currentUser.darkMode);
+                showChatScreen(); 
+            }
+        });
+
+        function applyTheme(colorKey = 'teal', isDark = false) {
+            selectedThemeColor = colorKey;
+            const theme = colorMap[colorKey] || colorMap.teal;
+            document.documentElement.style.setProperty('--primary', theme.primary);
+            document.documentElement.style.setProperty('--primary-dark', theme.dark);
+            document.documentElement.style.setProperty('--primary-light', theme.light);
+
+            const body = document.getElementById('app-body');
+            const authCard = document.getElementById('auth-card');
+            const modalCard = document.getElementById('modal-card');
+            const feedbackCard = document.getElementById('feedback-card');
+
+            if (isDark) {
+                body.classList.add('bg-gray-900', 'text-white');
+                authCard?.classList.add('bg-gray-800', 'text-white');
+                modalCard?.classList.add('bg-gray-800', 'text-white');
+                feedbackCard?.classList.add('bg-gray-800', 'text-white');
+            } else {
+                body.classList.remove('bg-gray-900', 'text-white');
+                authCard?.classList.remove('bg-gray-800', 'text-white');
+                modalCard?.classList.remove('bg-gray-800', 'text-white');
+                feedbackCard?.classList.remove('bg-gray-800', 'text-white');
+            }
+        }
+
+        function selectColor(color) { 
+            selectedThemeColor = color; 
+            applyTheme(color, document.getElementById('setting-darkmode').checked); 
+        }
+
+        function previewDarkMode(isDark) { applyTheme(selectedThemeColor, isDark); }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').innerText = isRegisterMode ? 'Daftar Akun Baru' : 'Login Chat Aman';
+            document.getElementById('btn-submit').innerText = isRegisterMode ? 'Daftar' : 'Masuk';
+            document.getElementById('display-name-group').style.display = isRegisterMode ? 'block' : 'none';
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const username = document.getElementById('input-username').value;
+            const password = document.getElementById('input-password').value;
+            const displayName = document.getElementById('input-displayname').value;
+
+            const res = await fetch(isRegisterMode ? '/api/register' : '/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, displayName })
+            });
+
+            const data = await res.json();
+            alert(data.message || 'Sukses');
+            if (data.success) {
+                if (isRegisterMode) toggleAuthMode();
+                else { 
+                    currentUser = data.user; 
+                    applyTheme(currentUser.themeColor, currentUser.darkMode);
+                    showChatScreen(); 
+                }
+            }
+        }
+
+        function showChatScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('chat-screen').classList.remove('hidden');
+            document.getElementById('user-display-name').innerText = currentUser.displayName;
+            document.getElementById('user-username-tag').innerText = `@${currentUser.username}`;
+            socket.emit('register-user', currentUser.username);
+        }
+
+        socket.on('update-user-list', (users) => {
+            const listEl = document.getElementById('user-list');
+            listEl.innerHTML = '';
+            users.filter(u => u !== currentUser.username).forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'p-3 border-b text-xs cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-2';
+                div.innerHTML = `<span class="bg-theme text-white p-1 rounded-full w-6 h-6 flex items-center justify-center font-bold">${u[0].toUpperCase()}</span> @${u}`;
+                div.onclick = () => selectChatUser(u);
+                listEl.appendChild(div);
+            });
+        });
+
+        function selectChatUser(u) {
+            activeChatRecipient = u;
+            document.getElementById('chat-header').innerText = `Chat dengan @${u}`;
+            document.getElementById('message-input').disabled = false;
+            document.getElementById('send-btn').disabled = false;
+            document.getElementById('messages-container').innerHTML = '';
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            if (input.value.trim() && activeChatRecipient) {
+                socket.emit('send-private-message', { toUsername: activeChatRecipient, message: input.value.trim() });
+                input.value = '';
+            }
+        }
+
+        socket.on('message-sent', d => { if (d.to === activeChatRecipient) appendBubble(d.message, d.time, 'sent'); });
+        socket.on('receive-message', d => { 
+            if (d.from === activeChatRecipient) appendBubble(d.message, d.time, 'received'); 
+            else alert(`Pesan baru dari @${d.from}`);
+        });
+
+        function appendBubble(msg, time, type) {
+            const container = document.getElementById('messages-container');
+            const isSent = type === 'sent';
+            const bubble = document.createElement('div');
+            bubble.className = `flex flex-col ${isSent ? 'items-end' : 'items-start'}`;
+            bubble.innerHTML = `
+                <div class="${isSent ? 'bg-theme text-white' : 'bg-white text-gray-800'} p-2 rounded-lg text-xs shadow max-w-[80%]">
+                    <p>${msg}</p>
+                    <span class="text-[8px] opacity-75 block text-right mt-1">${time}</span>
+                </div>
+            `;
+            container.appendChild(bubble);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function openSettings() { 
+            document.getElementById('setting-displayname').value = currentUser.displayName;
+            document.getElementById('setting-darkmode').checked = !!currentUser.darkMode;
+            document.getElementById('settings-modal').classList.remove('hidden'); 
+        }
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const displayName = document.getElementById('setting-displayname').value;
+            const newPassword = document.getElementById('setting-password').value;
+            const darkMode = document.getElementById('setting-darkmode').checked;
+
+            const res = await fetch('/api/update-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ displayName, newPassword, themeColor: selectedThemeColor, darkMode })
+            });
+            const data = await res.json();
+            if (data.success) {
+                currentUser = data.user;
+                document.getElementById('user-display-name').innerText = currentUser.displayName;
+                applyTheme(currentUser.themeColor, currentUser.darkMode);
+                closeSettings();
+                alert('Pengaturan berhasil disimpan!');
+            }
+        }
+
+        function openFeedback() { document.getElementById('feedback-modal').classList.remove('hidden'); }
+        function closeFeedback() { document.getElementById('feedback-modal').classList.add('hidden'); }
+
+        async function sendFeedback(e) {
+            e.preventDefault();
+            const feedback = document.getElementById('feedback-input').value;
+            const res = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feedback })
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('feedback-input').value = '';
+                closeFeedback();
+                alert(data.message);
+            }
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.reload();
+        }
+    </script>
+</body>
+  </html>
+                  
